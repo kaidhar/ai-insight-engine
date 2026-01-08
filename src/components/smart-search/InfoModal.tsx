@@ -18,8 +18,8 @@ const InfoModal = ({ open, onClose }: InfoModalProps) => {
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-[61] p-4 overflow-y-auto">
-        <div className="bg-background rounded-2xl shadow-2xl border-2 border-border w-full max-w-3xl max-h-[90vh] flex flex-col my-auto">
+      <div className="fixed inset-0 flex items-center justify-center z-[61] p-4 pointer-events-none">
+        <div className="bg-background rounded-2xl shadow-2xl border-2 border-border w-full max-w-3xl max-h-[90vh] flex flex-col my-auto pointer-events-auto">
           {/* Header */}
           <div className="px-6 py-4 border-b border-border flex-shrink-0">
             <div className="flex items-center justify-between">

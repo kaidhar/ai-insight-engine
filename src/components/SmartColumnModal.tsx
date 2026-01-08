@@ -214,7 +214,7 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
         }
         onOpenChange(newOpen);
       }}>
-        <SheetContent side="right" className="w-[800px] sm:max-w-[800px] p-0 overflow-hidden flex flex-col">
+        <SheetContent side="right" className="w-[800px] sm:max-w-[800px] p-0 overflow-hidden flex flex-col [&>button]:hidden">
           {/* Header */}
           <div className="px-6 py-4 border-b border-border flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
@@ -609,23 +609,6 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
       {/* Preview Sidebar - Opens to the left, side-by-side with main sidebar */}
       {showPreviewSidebar && (
         <>
-          {/* Backdrop overlay - only covers area outside both sidebars */}
-          <div
-            className="fixed bg-black/20 backdrop-blur-sm"
-            style={{
-              zIndex: 52,
-              top: 0,
-              bottom: 0,
-              left: 0,
-              right: '1400px', // Covers only the area left of preview (800px main + 600px preview)
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowPreviewSidebar(false);
-              onOpenChange(false);
-            }}
-          />
-
           {/* Preview Sidebar */}
           <div
             className="fixed inset-y-0 bg-background border-r border-border shadow-2xl flex flex-col"
@@ -633,7 +616,8 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
               right: '800px',
               left: 'auto',
               width: '600px',
-              zIndex: 53,
+              zIndex: 100,
+              pointerEvents: 'auto',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -656,17 +640,15 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
             </div>
 
             {/* Preview Content */}
-            <div className="flex-1 overflow-hidden p-6">
-              <div className="h-full overflow-y-auto">
-                <PreviewSystem
-                  prompt={prompt}
-                  selectedColumns={selectedColumns}
-                  previewResults={previewResults}
-                  onPreviewComplete={(fields) => {
-                    setDetectedFields(fields);
-                  }}
-                />
-              </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <PreviewSystem
+                prompt={prompt}
+                selectedColumns={selectedColumns}
+                previewResults={previewResults}
+                onPreviewComplete={(fields) => {
+                  setDetectedFields(fields);
+                }}
+              />
             </div>
 
             {/* Preview Footer */}
