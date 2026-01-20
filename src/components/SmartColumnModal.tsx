@@ -730,10 +730,6 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                         <RefreshCw className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Use / to add data columns from Accounts and Contacts</span>
-                      <span>Esc to close column suggestions</span>
-                    </div>
                   </div>
                 </div>
 
