@@ -485,16 +485,13 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
           <div className="flex-1 overflow-y-auto">
             {currentStep === "configure" && (
               <div className="p-6 relative bg-gradient-to-br from-background via-secondary/20 to-purple-200/30">
-                <div className="relative mx-auto flex min-h-[560px] max-w-[880px] flex-col justify-between rounded-3xl border-2 border-border bg-background shadow-2xl ring-1 ring-primary/10 overflow-hidden before:absolute before:inset-0 before:pointer-events-none before:bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.2),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(168,85,247,0.08),transparent_55%)]">
-                  <div className="px-8 py-4 space-y-2 bg-background">
-                    <h2 className="text-3xl font-semibold text-foreground">Where should we start?</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Describe what you want to research. I can analyze, summarize, and find insights.
-                    </p>
+                <div className="relative mx-auto flex max-w-[880px] flex-col rounded-3xl border-2 border-border bg-background shadow-2xl ring-1 ring-primary/10 overflow-hidden before:absolute before:inset-0 before:pointer-events-none before:bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.2),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(168,85,247,0.08),transparent_55%)]">
+                  <div className="px-8 py-3 bg-background">
+                    <h2 className="text-2xl font-semibold text-foreground">Where should we start?</h2>
                   </div>
 
-                  <div className="px-6 pb-6">
-                    <div className="relative rounded-[28px] border-2 border-border bg-background px-4 py-4 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all shadow-sm">
+                  <div className="px-6 pb-4">
+                    <div className="relative rounded-[28px] border-2 border-border bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all shadow-sm">
                       <div className="relative">
                         <textarea
                           ref={textareaRef}
@@ -503,7 +500,7 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                           onKeyDown={handlePromptKeyDown}
                           placeholder=""
                           aria-label="Prompt"
-                          className="w-full min-h-[160px] bg-transparent resize-none text-sm placeholder:text-muted-foreground leading-relaxed focus:outline-none relative z-10"
+                          className="w-full min-h-[80px] bg-transparent resize-none text-sm placeholder:text-muted-foreground leading-relaxed focus:outline-none relative z-10"
                         />
                         {!prompt.trim() && (
                           <div className="pointer-events-none absolute left-0 top-0 text-sm text-muted-foreground/70 leading-relaxed">
