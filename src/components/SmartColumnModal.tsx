@@ -1,20 +1,34 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Sparkles, X, ChevronLeft, ChevronRight, PlayCircle, Zap, Crown, Info, CheckCircle2 } from "lucide-react";
+import { Sparkles, X, ChevronLeft, ChevronRight, PlayCircle, Zap, Crown, Info, CheckCircle2, Plus, ChevronDown, Globe, MapPin, Clock, FileText, MoreHorizontal } from "lucide-react";
 import PromptBuilder from "./smart-column/PromptBuilder";
 import PreviewSystem from "./smart-column/PreviewSystem";
 import ExecutionMonitor from "./smart-column/ExecutionMonitor";
+import ColumnDropdown from "./smart-column/ColumnDropdown";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "@/components/ui/dropdown-menu";
 import BudgetControl from "./smart-search/BudgetControl";
 import InfoModal from "./smart-search/InfoModal";
 import CostBreakdown from "./smart-search/CostBreakdown";
 import { BudgetMode } from "@/services/smart-search/enrichment-orchestrator";
 import { analyzeQueryComplexity } from "@/services/smart-search/query-complexity-analyzer";
+import { callSmartSearch } from "@/services/smart-search/api-client";
 
 interface SmartColumnModalProps {
   open: boolean;
@@ -24,6 +38,13 @@ interface SmartColumnModalProps {
 type Step = "configure" | "confirm" | "execute";
 
 const MODELS = [
+  {
+    id: "sprouts-research",
+    name: "Sprouts Research",
+    credits: 5,
+    icon: Sparkles,
+    description: "AI Signals powered research"
+  },
   {
     id: "gpt-4o",
     name: "GPT-4o",
@@ -56,13 +77,25 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
 
   // Smart Search state
-  const [budgetMode, setBudgetMode] = useState<BudgetMode>("auto");
+  const [budgetMode, setBudgetMode] = useState<BudgetMode>("fast_only");
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [queryComplexity, setQueryComplexity] = useState<'simple' | 'medium' | 'complex' | undefined>();
+
+  // Optional configuration state
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [dateRange, setDateRange] = useState("");
+  const [geolocation, setGeolocation] = useState("");
+  const [outputFormat, setOutputFormat] = useState("");
 
   // Preview state
   const [showPreviewSidebar, setShowPreviewSidebar] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  // Column insertion state
+  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+  const [columnDropdownPosition, setColumnDropdownPosition] = useState({ top: 0, left: 0 });
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Preview results with tier information
   const [previewResults, setPreviewResults] = useState<Array<{
@@ -79,7 +112,45 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
     { name: "confidence", type: "text", sample: "High" },
   ]);
 
-  const isPromptValid = prompt.trim().length > 0 && selectedColumns.length > 0;
+  const isPromptValid = prompt.trim().length > 0;
+
+  // Handle "/" key for column insertion
+  const handlePromptKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "/" && !showColumnDropdown) {
+      e.preventDefault();
+      const target = e.currentTarget;
+      const rect = target.getBoundingClientRect();
+      const cursorPos = target.selectionStart;
+
+      setColumnDropdownPosition({
+        top: rect.top + 40,
+        left: rect.left + 20,
+      });
+      setShowColumnDropdown(true);
+      setCursorPosition(cursorPos);
+    }
+
+    if (e.key === "Escape" && showColumnDropdown) {
+      setShowColumnDropdown(false);
+    }
+  };
+
+  // Handle column selection from dropdown
+  const handleColumnSelect = (columnName: string) => {
+    if (!selectedColumns.includes(columnName)) {
+      setSelectedColumns([...selectedColumns, columnName]);
+
+      // Insert column reference at cursor position
+      const newValue =
+        prompt.slice(0, cursorPosition) +
+        `{{${columnName}}}` +
+        prompt.slice(cursorPosition);
+      setPrompt(newValue);
+    }
+
+    setShowColumnDropdown(false);
+    textareaRef.current?.focus();
+  };
 
   const handleNext = () => {
     if (currentStep === "configure") {
@@ -97,32 +168,74 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
     }
   };
 
-  const handlePreview = () => {
+  const handlePreview = async () => {
     setIsLoadingPreview(true);
 
     // Analyze query complexity
     const complexity = analyzeQueryComplexity(prompt);
     setQueryComplexity(complexity.level);
 
-    setTimeout(() => {
-      setIsLoadingPreview(false);
+    try {
+      // Use real company names for testing
+      const mockCompanies = [
+        "TechCorp Inc.",
+        "DataFlow Systems",
+        "CloudVision Ltd.",
+        "InnovateLabs",
+        "FutureStack"
+      ];
+
+      // Call API for each company
+      const results = await Promise.all(
+        mockCompanies.map(async (companyName) => {
+          try {
+            const result = await callSmartSearch({
+              query: prompt,
+              company_name: companyName,
+              budget_mode: budgetMode
+            });
+
+            return {
+              accountName: companyName,
+              tierUsed: result.tierUsed,
+              cost: result.cost,
+              answer: result.answer,
+              upgradeReason: result.upgradeReason
+            };
+          } catch (error) {
+            console.error(`Error for ${companyName}:`, error);
+            return {
+              accountName: companyName,
+              tierUsed: 'tier1_fast' as const,
+              cost: 1,
+              answer: `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`,
+            };
+          }
+        })
+      );
+
+      setPreviewResults(results);
       setShowPreviewSidebar(true);
 
-      // Simulate Smart Search preview with mixed tier usage
-      // Based on budget mode and query complexity
+      // Auto-detect fields from preview
+      setDetectedFields([
+        { name: "result", type: "text", sample: results[0]?.answer || "N/A" },
+        { name: "tier_used", type: "text", sample: results[0]?.tierUsed || "N/A" },
+      ]);
+
+    } catch (error) {
+      console.error('Preview error:', error);
+      // Fallback to mock data on error
       const mockPreviewResults = generateMockPreviewResults(
         prompt,
         budgetMode,
         complexity.level
       );
       setPreviewResults(mockPreviewResults);
-
-      // Auto-detect fields from preview
-      setDetectedFields([
-        { name: "indian_origin", type: "text", sample: "Yes" },
-        { name: "confidence", type: "text", sample: "High" },
-      ]);
-    }, 2000);
+      setShowPreviewSidebar(true);
+    } finally {
+      setIsLoadingPreview(false);
+    }
   };
 
   // Generate mock preview results based on query and budget mode
@@ -283,179 +396,377 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
             {currentStep === "configure" && (
-              <div className="p-6 space-y-4">
-                {/* Combined Prompt Box with Inline Model Selector */}
-                <div className="rounded-xl border-2 border-border bg-card overflow-hidden">
-                  {/* Prompt Input Area */}
-                  <div className="p-4">
-                    <PromptBuilder
-                      value={prompt}
-                      onChange={setPrompt}
-                      selectedColumns={selectedColumns}
-                      onColumnsChange={setSelectedColumns}
-                    />
+              <div className="p-6 space-y-6">
+                {/* Intro Text */}
+                <div className="text-sm text-muted-foreground">
+                  Stay ahead with real-time AI-powered intent signals.
+                </div>
+
+                {/* Prompt Input Section with Context Badges */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-sm font-medium text-foreground">
+                      What do you want to know about these accounts?
+                    </Label>
+                    <span className="text-xs text-muted-foreground">
+                      Word count: {prompt.split(/\s+/).filter(Boolean).length}
+                    </span>
                   </div>
 
-                  {/* Bottom Bar: Model Selector + Preview Button */}
-                  <div className="flex items-center justify-between gap-3 px-4 py-3 bg-secondary/30 border-t border-border">
-                    <div className="flex items-center gap-3 flex-1">
-                      <span className="text-xs text-muted-foreground font-medium">Model:</span>
-                      <div className="flex items-center gap-2 flex-1">
-                        <Select value={selectedModel} onValueChange={setSelectedModel}>
-                          <SelectTrigger className="h-9 w-[160px] bg-background border border-border">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {MODELS.map((model) => {
+                  {/* Extended White Container - includes textarea + separator + config */}
+                  <div className="relative rounded-xl border-2 border-border bg-card shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+                    <div className="w-full min-h-[280px] p-4 flex flex-col">
+                      <textarea
+                        ref={textareaRef}
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        onKeyDown={handlePromptKeyDown}
+                        placeholder="e.g. Is {{CONTACT_NAME}} of Indian origin?&#10;e.g. Did {{COMPANY_NAME}} raise funding recently?&#10;e.g. What technologies does {{COMPANY_DOMAIN}} use?&#10;&#10;Type / to insert data columns"
+                        className="w-full flex-1 bg-transparent resize-none focus:outline-none text-sm placeholder:text-muted-foreground leading-relaxed"
+                      />
+
+                    </div>
+
+                    {/* Help Me Button - Floating in Prompt Area */}
+                    <div className="absolute bottom-[68px] left-4">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="bg-background border border-border shadow-md hover:bg-secondary text-foreground h-8 w-8"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Separator Line */}
+                    <div className="border-t border-border mx-4 mt-3" />
+
+                    {/* Configuration Section - Plus and Model Selector */}
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {/* Context Tiles - Show when selected with overflow handling */}
+                        {(() => {
+                          const MAX_VISIBLE_TILES = 2;
+                          const activeTiles = [
+                            geolocation && {
+                              id: 'geolocation',
+                              component: (
+                                <Button
+                                  key="geolocation"
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => setGeolocation("")}
+                                  className="h-8 gap-2 px-3 bg-orange-500 text-white hover:bg-orange-600"
+                                >
+                                  <MapPin className="h-3.5 w-3.5" />
+                                  <span className="text-xs capitalize">{geolocation.replace(/_/g, ' ')}</span>
+                                  <X className="h-3 w-3 ml-1" />
+                                </Button>
+                              )
+                            },
+                            dateRange && {
+                              id: 'dateRange',
+                              component: (
+                                <Button
+                                  key="dateRange"
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => setDateRange("")}
+                                  className="h-8 gap-2 px-3 bg-purple-500 text-white hover:bg-purple-600"
+                                >
+                                  <Clock className="h-3.5 w-3.5" />
+                                  <span className="text-xs capitalize">{dateRange.replace(/_/g, ' ')}</span>
+                                  <X className="h-3 w-3 ml-1" />
+                                </Button>
+                              )
+                            },
+                            outputFormat && {
+                              id: 'outputFormat',
+                              component: (
+                                <Button
+                                  key="outputFormat"
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => setOutputFormat("")}
+                                  className="h-8 gap-2 px-3 bg-green-500 text-white hover:bg-green-600"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  <span className="text-xs capitalize">{outputFormat.replace(/_/g, ' ')}</span>
+                                  <X className="h-3 w-3 ml-1" />
+                                </Button>
+                              )
+                            },
+                            webSearchEnabled && {
+                              id: 'webSearch',
+                              component: (
+                                <Button
+                                  key="webSearch"
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => setWebSearchEnabled(false)}
+                                  className="h-8 gap-2 px-3 bg-blue-500 text-white hover:bg-blue-600"
+                                >
+                                  <Globe className="h-3.5 w-3.5" />
+                                  <span className="text-xs">Web Search</span>
+                                  <X className="h-3 w-3 ml-1" />
+                                </Button>
+                              )
+                            }
+                          ].filter(Boolean);
+
+                          const visibleTiles = activeTiles.slice(0, MAX_VISIBLE_TILES);
+                          const remainingCount = activeTiles.length - MAX_VISIBLE_TILES;
+
+                          return (
+                            <>
+                              {visibleTiles.map(tile => tile.component)}
+                              {remainingCount > 0 && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 px-3 gap-1.5 border-border hover:bg-secondary"
+                                    >
+                                      <MoreHorizontal className="h-3.5 w-3.5" />
+                                      <span className="text-xs font-medium">+{remainingCount}</span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="start" className="w-56">
+                                    <DropdownMenuLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                      Hidden context
+                                    </DropdownMenuLabel>
+                                    {activeTiles.slice(MAX_VISIBLE_TILES).map(tile => {
+                                      if (tile.id === 'geolocation') {
+                                        return (
+                                          <DropdownMenuItem key={tile.id} onSelect={() => setGeolocation("")} className="gap-2">
+                                            <MapPin className="h-4 w-4 text-orange-500" />
+                                            <span className="text-sm capitalize flex-1">{geolocation.replace(/_/g, ' ')}</span>
+                                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </DropdownMenuItem>
+                                        );
+                                      } else if (tile.id === 'dateRange') {
+                                        return (
+                                          <DropdownMenuItem key={tile.id} onSelect={() => setDateRange("")} className="gap-2">
+                                            <Clock className="h-4 w-4 text-purple-500" />
+                                            <span className="text-sm capitalize flex-1">{dateRange.replace(/_/g, ' ')}</span>
+                                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </DropdownMenuItem>
+                                        );
+                                      } else if (tile.id === 'outputFormat') {
+                                        return (
+                                          <DropdownMenuItem key={tile.id} onSelect={() => setOutputFormat("")} className="gap-2">
+                                            <FileText className="h-4 w-4 text-green-500" />
+                                            <span className="text-sm capitalize flex-1">{outputFormat.replace(/_/g, ' ')}</span>
+                                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </DropdownMenuItem>
+                                        );
+                                      } else if (tile.id === 'webSearch') {
+                                        return (
+                                          <DropdownMenuItem key={tile.id} onSelect={() => setWebSearchEnabled(false)} className="gap-2">
+                                            <Globe className="h-4 w-4 text-blue-500" />
+                                            <span className="text-sm flex-1">Web Search</span>
+                                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </DropdownMenuItem>
+                                        );
+                                      }
+                                      return null;
+                                    })}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </>
+                          );
+                        })()}
+
+                        {/* Plus Icon for Additional Options */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full">
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-56">
+                            <DropdownMenuLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                              Add context
+                            </DropdownMenuLabel>
+
+                            {/* Sprouts Research specific options */}
+                            {selectedModel === 'sprouts-research' && (
+                              <>
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger className="gap-2">
+                                    <MapPin className={`h-4 w-4 ${geolocation ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                                    <span className="text-sm">Location</span>
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent className="w-48 p-2">
+                                    <div className="relative mb-2" onClick={(e) => e.stopPropagation()}>
+                                      <input
+                                        type="text"
+                                        placeholder="Search country..."
+                                        className="w-full px-3 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                    </div>
+                                    <DropdownMenuItem onSelect={() => setGeolocation("united_states")}>
+                                      United States
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setGeolocation("global")}>
+                                      Global
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setGeolocation("europe")}>
+                                      Europe
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setGeolocation("asia")}>
+                                      Asia
+                                    </DropdownMenuItem>
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger className="gap-2">
+                                    <Clock className={`h-4 w-4 ${dateRange ? 'text-purple-500' : 'text-muted-foreground'}`} />
+                                    <span className="text-sm">Time Range</span>
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent className="w-48">
+                                    <DropdownMenuItem onSelect={() => setDateRange("past_6_months")}>
+                                      Past 6 Months
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setDateRange("past_year")}>
+                                      Past Year
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setDateRange("past_2_years")}>
+                                      Past 2 Years
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setDateRange("all_time")}>
+                                      All Time
+                                    </DropdownMenuItem>
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger className="gap-2">
+                                    <FileText className={`h-4 w-4 ${outputFormat ? 'text-green-500' : 'text-muted-foreground'}`} />
+                                    <span className="text-sm">Response Format</span>
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent className="w-40">
+                                    <DropdownMenuItem onSelect={() => setOutputFormat("yes_no")}>
+                                      Yes/No
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setOutputFormat("detailed")}>
+                                      Detailed
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setOutputFormat("structured")}>
+                                      Structured
+                                    </DropdownMenuItem>
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                              </>
+                            )}
+
+                            {/* Web Search option for all models */}
+                            <DropdownMenuItem
+                              className="gap-2 cursor-pointer"
+                              onSelect={() => setWebSearchEnabled(!webSearchEnabled)}
+                            >
+                              <Globe className={`h-4 w-4 ${webSearchEnabled ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                              <span className="text-sm">Web Search</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      {/* Model Selector */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Model:</span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2 h-9 min-w-[160px] justify-between font-normal">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="h-3 w-3 text-primary" />
+                                <span className="text-xs">{MODELS.find(m => m.id === selectedModel)?.name || "Sprouts Research"}</span>
+                              </div>
+                              <ChevronDown className="h-3 w-3 opacity-50" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[240px]">
+                            {/* Show first 2 models */}
+                            {MODELS.slice(0, 2).map((model) => {
                               const Icon = model.icon;
                               return (
-                                <SelectItem key={model.id} value={model.id}>
+                                <DropdownMenuItem key={model.id} onClick={() => setSelectedModel(model.id)} className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    <Icon className="w-4 h-4 text-primary" />
-                                    <span className="font-medium">{model.name}</span>
+                                    <Icon className="h-3 w-3 text-primary" />
+                                    <span>{model.name}</span>
                                   </div>
-                                </SelectItem>
+                                  <Badge variant="secondary" className="ml-2 text-xs">
+                                    {model.credits} credits
+                                  </Badge>
+                                </DropdownMenuItem>
                               );
                             })}
-                          </SelectContent>
-                        </Select>
-                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 px-2.5 py-0.5 text-xs font-medium">
-                          {MODELS.find(m => m.id === selectedModel)?.credits || 10} credits
-                        </Badge>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-primary font-medium">
+                              See all models
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
-
-                    {/* Preview Button */}
-                    <Button
-                      onClick={handlePreview}
-                      disabled={!isPromptValid || isLoadingPreview}
-                      size="sm"
-                      className="gap-2 bg-gradient-accent hover:shadow-glow-accent"
-                    >
-                      {isLoadingPreview ? (
-                        <>
-                          <PlayCircle className="w-4 h-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <PlayCircle className="w-4 h-4" />
-                          Preview
-                        </>
-                      )}
-                    </Button>
                   </div>
                 </div>
 
-                {/* Smart Search Budget Control - Compact Version */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold text-foreground">
-                      Budget Control
-                    </Label>
-                    <button
-                      onClick={() => setShowInfoModal(true)}
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                    >
-                      <Info className="w-3 h-3" />
-                      How does this work?
-                    </button>
-                  </div>
+                <div className="text-xs text-muted-foreground">
+                  Use / to add data columns from Accounts and Contacts page
+                </div>
 
+                <Separator className="my-4" />
+
+                {/* Recommended Prompts */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-foreground">Recommended:</h3>
                   <div className="grid grid-cols-3 gap-3">
-                    {/* Auto Mode */}
-                    <button
-                      onClick={() => setBudgetMode('auto')}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        budgetMode === 'auto'
-                          ? 'border-primary bg-primary/5 shadow-sm'
-                          : 'border-border bg-card hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Sparkles className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-sm font-semibold text-foreground">Auto</span>
-                        {budgetMode === 'auto' && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-primary ml-auto" />
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Smart optimization
-                      </p>
-                      <div className="text-xs font-medium text-primary">
-                        1-6 credits
-                      </div>
-                    </button>
-
-                    {/* Fast Only Mode */}
-                    <button
-                      onClick={() => setBudgetMode('fast_only')}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        budgetMode === 'fast_only'
-                          ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm'
-                          : 'border-border bg-card hover:border-emerald-500/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span className="text-sm font-semibold text-foreground">Fast Only</span>
-                        {budgetMode === 'fast_only' && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-auto" />
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Budget-conscious
-                      </p>
-                      <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                        1 credit
-                      </div>
-                    </button>
-
-                    {/* Deep Search Mode */}
-                    <button
-                      onClick={() => setBudgetMode('deep_only')}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        budgetMode === 'deep_only'
-                          ? 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm'
-                          : 'border-border bg-card hover:border-purple-500/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Crown className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                        <span className="text-sm font-semibold text-foreground">Deep Search</span>
-                        {budgetMode === 'deep_only' && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 ml-auto" />
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Maximum quality
-                      </p>
-                      <div className="text-xs font-medium text-purple-600 dark:text-purple-400">
-                        6 credits
-                      </div>
-                    </button>
-                  </div>
-
-                  {/* Smart Recommendation */}
-                  {queryComplexity && (
-                    <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-start gap-2">
-                        <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                        <div className="text-xs text-blue-700 dark:text-blue-300">
-                          {queryComplexity === 'simple' && (
-                            <span>Simple query - Auto mode will likely use Fast Search (save up to 83%)</span>
-                          )}
-                          {queryComplexity === 'medium' && (
-                            <span>Medium complexity - Auto mode will try Fast Search first</span>
-                          )}
-                          {queryComplexity === 'complex' && (
-                            <span>Complex query - Auto mode will use Deep Search more often</span>
-                          )}
+                    {[
+                      { icon: <FileText className="h-4 w-4" />, text: "Check if a company is SaaS or Non-Saas" },
+                      { icon: <MapPin className="h-4 w-4" />, text: "Find the location of the contact" },
+                      { icon: <FileText className="h-4 w-4" />, text: "Find the Linkedin of the contact" }
+                    ].map((item, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setPrompt(item.text)}
+                        className="flex flex-col items-start gap-3 p-4 rounded-xl border border-border hover:border-primary/50 hover:shadow-sm bg-card transition-all text-left h-full group"
+                      >
+                        <div className="p-2 bg-secondary rounded-lg text-muted-foreground group-hover:text-foreground group-hover:bg-primary/10 transition-colors">
+                          {item.icon}
                         </div>
-                      </div>
-                    </div>
-                  )}
+                        <div className="flex items-start justify-between w-full">
+                          <span className="text-xs font-medium text-muted-foreground leading-snug group-hover:text-foreground">
+                            {item.text}
+                          </span>
+                          <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground -mr-1 -mt-1 transition-colors" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Column Dropdown */}
+                {showColumnDropdown && (
+                  <div
+                    className="fixed z-50"
+                    style={{
+                      top: `${columnDropdownPosition.top}px`,
+                      left: `${columnDropdownPosition.left}px`
+                    }}
+                  >
+                    <ColumnDropdown
+                      searchTerm=""
+                      onSelect={handleColumnSelect}
+                      onClose={() => setShowColumnDropdown(false)}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -465,7 +776,14 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                   <h3 className="text-sm font-semibold text-foreground mb-3">Configuration Summary</h3>
                   <div className="p-4 rounded-lg bg-secondary/30 border border-border space-y-3 text-sm">
                     <p><span className="text-muted-foreground">Model:</span> <span className="font-medium">{MODELS.find(m => m.id === selectedModel)?.name || "GPT-4o"}</span></p>
-                    <p><span className="text-muted-foreground">Budget Mode:</span> <span className="font-medium capitalize">{budgetMode === 'fast_only' ? 'Fast Only' : budgetMode === 'deep_only' ? 'Deep Search' : 'Auto (Recommended)'}</span></p>
+                    <p><span className="text-muted-foreground">Web Search:</span> <span className="font-medium">{webSearchEnabled ? 'Enabled' : 'Disabled'}</span></p>
+                    {webSearchEnabled && (
+                      <>
+                        <p><span className="text-muted-foreground">Date Range:</span> <span className="font-medium capitalize">{dateRange.replace(/_/g, ' ')}</span></p>
+                        <p><span className="text-muted-foreground">Geolocation:</span> <span className="font-medium capitalize">{geolocation.replace(/_/g, ' ')}</span></p>
+                      </>
+                    )}
+                    <p><span className="text-muted-foreground">Output Format:</span> <span className="font-medium capitalize">{outputFormat.replace(/_/g, ' ')}</span></p>
                     <div>
                       <p className="text-muted-foreground mb-2">Output Fields:</p>
                       <div className="flex flex-wrap gap-2 ml-0">
@@ -574,14 +892,25 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
               </Button>
 
               {currentStep === "configure" && (
-                <Button
-                  onClick={handleNext}
-                  disabled={!isPromptValid || !showPreviewSidebar}
-                  className="gap-2"
-                >
-                  Next: Confirm & Run
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handlePreview}
+                    disabled={!isPromptValid || isLoadingPreview}
+                    className="gap-2"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    Preview
+                  </Button>
+                  <Button
+                    onClick={handleNext}
+                    disabled={!isPromptValid}
+                    className="gap-2"
+                  >
+                    Next: Enrich Settings
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               )}
 
               {currentStep === "confirm" && (

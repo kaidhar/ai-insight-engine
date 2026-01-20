@@ -49,7 +49,7 @@ const TierIndicator = ({
           ) : (
             <Crown className={iconSizes[size]} />
           )}
-          <span>{isFast ? 'Fast Search' : 'Deep Search'}</span>
+          <span>{isFast ? 'Quick Research' : 'Deep Research'}</span>
         </div>
       </Badge>
 
