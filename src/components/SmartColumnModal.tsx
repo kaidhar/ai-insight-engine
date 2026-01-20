@@ -1,11 +1,12 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Sparkles, X, ChevronLeft, ChevronRight, PlayCircle, Zap, Crown, Info, CheckCircle2, Plus, ChevronDown, Globe, MapPin, Clock, FileText, MoreHorizontal } from "lucide-react";
+import { Sparkles, X, ChevronLeft, ChevronRight, PlayCircle, Zap, Crown, Info, Plus, ChevronDown, Globe, MapPin, Clock, FileText, Mic, RefreshCw } from "lucide-react";
 import PromptBuilder from "./smart-column/PromptBuilder";
 import PreviewSystem from "./smart-column/PreviewSystem";
 import ExecutionMonitor from "./smart-column/ExecutionMonitor";
 import ColumnDropdown from "./smart-column/ColumnDropdown";
+import SignalLibraryModal, { SignalLibraryItem } from "./smart-column/SignalLibraryModal";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ import CostBreakdown from "./smart-search/CostBreakdown";
 import { BudgetMode } from "@/services/smart-search/enrichment-orchestrator";
 import { analyzeQueryComplexity } from "@/services/smart-search/query-complexity-analyzer";
 import { callSmartSearch } from "@/services/smart-search/api-client";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SmartColumnModalProps {
   open: boolean;
@@ -75,6 +77,11 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
   const [enrichmentScope, setEnrichmentScope] = useState("all");
   const [customCount, setCustomCount] = useState("100");
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
+  const [showSignalLibrary, setShowSignalLibrary] = useState(false);
+  const [recommendedSeed, setRecommendedSeed] = useState(0);
+  const [typewriterText, setTypewriterText] = useState("");
+  const [typewriterIndex, setTypewriterIndex] = useState(0);
+  const [typewriterDeleting, setTypewriterDeleting] = useState(false);
 
   // Smart Search state
   const [budgetMode, setBudgetMode] = useState<BudgetMode>("fast_only");
@@ -113,6 +120,73 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
   ]);
 
   const isPromptValid = prompt.trim().length > 0;
+  const activeModel = MODELS.find((model) => model.id === selectedModel);
+
+  const handleEnhancePrompt = () => {
+    if (!prompt.trim()) return;
+    setPrompt(`Please be concise and structured. ${prompt.trim()}`);
+  };
+
+  const handleSignalSelect = (signal: SignalLibraryItem) => {
+    const snippet = signal.template || `${signal.name}: ${signal.description}`;
+    setPrompt((prev) => {
+      const base = prev.trim();
+      return base ? `${base}\n${snippet}` : snippet;
+    });
+  };
+
+  useEffect(() => {
+    if (prompt.trim()) {
+      setTypewriterText("");
+      setTypewriterDeleting(false);
+      return;
+    }
+
+    const messages = [
+      "Type / to insert fields, then ask for a signal",
+      "Try: Identify recent funding announcements",
+      "Try: Find the tech stack for this company"
+    ];
+    const currentMessage = messages[typewriterIndex % messages.length];
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    if (!typewriterDeleting) {
+      if (typewriterText.length < currentMessage.length) {
+        timeoutId = setTimeout(() => {
+          setTypewriterText(currentMessage.slice(0, typewriterText.length + 1));
+        }, 35);
+      } else {
+        timeoutId = setTimeout(() => setTypewriterDeleting(true), 1200);
+      }
+    } else if (typewriterText.length > 0) {
+      timeoutId = setTimeout(() => {
+        setTypewriterText(currentMessage.slice(0, typewriterText.length - 1));
+      }, 20);
+    } else {
+      setTypewriterDeleting(false);
+      setTypewriterIndex((prev) => (prev + 1) % messages.length);
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [prompt, typewriterDeleting, typewriterIndex, typewriterText]);
+
+  const recommendedSignals = [
+    { text: "Check if a company is SaaS or Non-Saas" },
+    { text: "Find the location of the contact" },
+    { text: "Find the Linkedin of the contact" },
+    { text: "Detect recent funding announcements" },
+    { text: "Identify current tech stack" },
+    { text: "Spot leadership changes in the last 6 months" }
+  ];
+
+  const visibleRecommendedSignals = (() => {
+    if (recommendedSignals.length <= 3) return recommendedSignals;
+    const start = recommendedSeed % recommendedSignals.length;
+    return recommendedSignals
+      .slice(start)
+      .concat(recommendedSignals.slice(0, start))
+      .slice(0, 3);
+  })();
 
   // Handle "/" key for column insertion
   const handlePromptKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -396,203 +470,38 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
             {currentStep === "configure" && (
-              <div className="p-6 space-y-6">
-                {/* Intro Text */}
-                <div className="text-sm text-muted-foreground">
-                  Stay ahead with real-time AI-powered intent signals.
-                </div>
-
-                {/* Prompt Input Section with Context Badges */}
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <Label className="text-sm font-medium text-foreground">
-                      What do you want to know about these accounts?
-                    </Label>
-                    <span className="text-xs text-muted-foreground">
-                      Word count: {prompt.split(/\s+/).filter(Boolean).length}
-                    </span>
+              <div className="p-6 relative bg-gradient-to-br from-background via-secondary/20 to-purple-200/30">
+                <div className="relative mx-auto flex min-h-[560px] max-w-[880px] flex-col justify-between rounded-3xl border-2 border-border bg-background shadow-2xl ring-1 ring-primary/10 overflow-hidden before:absolute before:inset-0 before:pointer-events-none before:bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.2),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(168,85,247,0.08),transparent_55%)]">
+                  <div className="px-8 py-8 space-y-4 bg-background">
+                    <h2 className="text-3xl font-semibold text-foreground">Where should we start?</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Describe the enrichment you want. I can summarize, classify, or find signal-based insights.
+                    </p>
                   </div>
 
-                  {/* Extended White Container - includes textarea + separator + config */}
-                  <div className="relative rounded-xl border-2 border-border bg-card shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
-                    <div className="w-full min-h-[280px] p-4 flex flex-col">
-                      <textarea
-                        ref={textareaRef}
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        onKeyDown={handlePromptKeyDown}
-                        placeholder="e.g. Is {{CONTACT_NAME}} of Indian origin?&#10;e.g. Did {{COMPANY_NAME}} raise funding recently?&#10;e.g. What technologies does {{COMPANY_DOMAIN}} use?&#10;&#10;Type / to insert data columns"
-                        className="w-full flex-1 bg-transparent resize-none focus:outline-none text-sm placeholder:text-muted-foreground leading-relaxed"
-                      />
-
-                    </div>
-
-                    {/* Help Me Button - Floating in Prompt Area */}
-                    <div className="absolute bottom-[68px] left-4">
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="bg-background border border-border shadow-md hover:bg-secondary text-foreground h-8 w-8"
-                      >
-                        <Sparkles className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-
-                    {/* Separator Line */}
-                    <div className="border-t border-border mx-4 mt-3" />
-
-                    {/* Configuration Section - Plus and Model Selector */}
-                    <div className="flex items-center justify-between px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {/* Context Tiles - Show when selected with overflow handling */}
-                        {(() => {
-                          const MAX_VISIBLE_TILES = 2;
-                          const activeTiles = [
-                            geolocation && {
-                              id: 'geolocation',
-                              component: (
-                                <Button
-                                  key="geolocation"
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => setGeolocation("")}
-                                  className="h-8 gap-2 px-3 bg-orange-500 text-white hover:bg-orange-600"
-                                >
-                                  <MapPin className="h-3.5 w-3.5" />
-                                  <span className="text-xs capitalize">{geolocation.replace(/_/g, ' ')}</span>
-                                  <X className="h-3 w-3 ml-1" />
-                                </Button>
-                              )
-                            },
-                            dateRange && {
-                              id: 'dateRange',
-                              component: (
-                                <Button
-                                  key="dateRange"
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => setDateRange("")}
-                                  className="h-8 gap-2 px-3 bg-purple-500 text-white hover:bg-purple-600"
-                                >
-                                  <Clock className="h-3.5 w-3.5" />
-                                  <span className="text-xs capitalize">{dateRange.replace(/_/g, ' ')}</span>
-                                  <X className="h-3 w-3 ml-1" />
-                                </Button>
-                              )
-                            },
-                            outputFormat && {
-                              id: 'outputFormat',
-                              component: (
-                                <Button
-                                  key="outputFormat"
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => setOutputFormat("")}
-                                  className="h-8 gap-2 px-3 bg-green-500 text-white hover:bg-green-600"
-                                >
-                                  <FileText className="h-3.5 w-3.5" />
-                                  <span className="text-xs capitalize">{outputFormat.replace(/_/g, ' ')}</span>
-                                  <X className="h-3 w-3 ml-1" />
-                                </Button>
-                              )
-                            },
-                            webSearchEnabled && {
-                              id: 'webSearch',
-                              component: (
-                                <Button
-                                  key="webSearch"
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => setWebSearchEnabled(false)}
-                                  className="h-8 gap-2 px-3 bg-blue-500 text-white hover:bg-blue-600"
-                                >
-                                  <Globe className="h-3.5 w-3.5" />
-                                  <span className="text-xs">Web Search</span>
-                                  <X className="h-3 w-3 ml-1" />
-                                </Button>
-                              )
-                            }
-                          ].filter(Boolean);
-
-                          const visibleTiles = activeTiles.slice(0, MAX_VISIBLE_TILES);
-                          const remainingCount = activeTiles.length - MAX_VISIBLE_TILES;
-
-                          return (
-                            <>
-                              {visibleTiles.map(tile => tile.component)}
-                              {remainingCount > 0 && (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-8 px-3 gap-1.5 border-border hover:bg-secondary"
-                                    >
-                                      <MoreHorizontal className="h-3.5 w-3.5" />
-                                      <span className="text-xs font-medium">+{remainingCount}</span>
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" className="w-56">
-                                    <DropdownMenuLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                                      Hidden context
-                                    </DropdownMenuLabel>
-                                    {activeTiles.slice(MAX_VISIBLE_TILES).map(tile => {
-                                      if (tile.id === 'geolocation') {
-                                        return (
-                                          <DropdownMenuItem key={tile.id} onSelect={() => setGeolocation("")} className="gap-2">
-                                            <MapPin className="h-4 w-4 text-orange-500" />
-                                            <span className="text-sm capitalize flex-1">{geolocation.replace(/_/g, ' ')}</span>
-                                            <X className="h-3.5 w-3.5 text-muted-foreground" />
-                                          </DropdownMenuItem>
-                                        );
-                                      } else if (tile.id === 'dateRange') {
-                                        return (
-                                          <DropdownMenuItem key={tile.id} onSelect={() => setDateRange("")} className="gap-2">
-                                            <Clock className="h-4 w-4 text-purple-500" />
-                                            <span className="text-sm capitalize flex-1">{dateRange.replace(/_/g, ' ')}</span>
-                                            <X className="h-3.5 w-3.5 text-muted-foreground" />
-                                          </DropdownMenuItem>
-                                        );
-                                      } else if (tile.id === 'outputFormat') {
-                                        return (
-                                          <DropdownMenuItem key={tile.id} onSelect={() => setOutputFormat("")} className="gap-2">
-                                            <FileText className="h-4 w-4 text-green-500" />
-                                            <span className="text-sm capitalize flex-1">{outputFormat.replace(/_/g, ' ')}</span>
-                                            <X className="h-3.5 w-3.5 text-muted-foreground" />
-                                          </DropdownMenuItem>
-                                        );
-                                      } else if (tile.id === 'webSearch') {
-                                        return (
-                                          <DropdownMenuItem key={tile.id} onSelect={() => setWebSearchEnabled(false)} className="gap-2">
-                                            <Globe className="h-4 w-4 text-blue-500" />
-                                            <span className="text-sm flex-1">Web Search</span>
-                                            <X className="h-3.5 w-3.5 text-muted-foreground" />
-                                          </DropdownMenuItem>
-                                        );
-                                      }
-                                      return null;
-                                    })}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
-                            </>
-                          );
-                        })()}
-
-                        {/* Plus Icon for Additional Options */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full">
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-56">
-                            <DropdownMenuLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                              Add context
-                            </DropdownMenuLabel>
-
-                            {/* Sprouts Research specific options */}
-                            {selectedModel === 'sprouts-research' && (
+                  <div className="px-6 pb-6">
+                    <div className="relative rounded-[28px] border-2 border-border bg-background px-4 py-4 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all shadow-sm">
+                      <div className="flex items-center justify-between gap-3 pb-3">
+                        <div className="flex items-center gap-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full hover:bg-secondary">
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-56">
+                              <DropdownMenuLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                Add context
+                              </DropdownMenuLabel>
+                              <DropdownMenuItem
+                                className="gap-2 cursor-pointer"
+                                onSelect={() => setShowSignalLibrary(true)}
+                              >
+                                <Sparkles className="h-4 w-4 text-primary" />
+                                <span className="text-sm">Signal Library</span>
+                                <Badge variant="secondary" className="ml-auto text-[10px]">5,500+</Badge>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <>
                                 <DropdownMenuSub>
                                   <DropdownMenuSubTrigger className="gap-2">
@@ -663,91 +572,168 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                                   </DropdownMenuSubContent>
                                 </DropdownMenuSub>
                               </>
-                            )}
 
-                            {/* Web Search option for all models */}
-                            <DropdownMenuItem
-                              className="gap-2 cursor-pointer"
-                              onSelect={() => setWebSearchEnabled(!webSearchEnabled)}
-                            >
-                              <Globe className={`h-4 w-4 ${webSearchEnabled ? 'text-blue-500' : 'text-muted-foreground'}`} />
-                              <span className="text-sm">Web Search</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <DropdownMenuItem
+                                className="gap-2 cursor-pointer"
+                                onSelect={() => setWebSearchEnabled(!webSearchEnabled)}
+                              >
+                                <Globe className={`h-4 w-4 ${webSearchEnabled ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                                <span className="text-sm">Web Search</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-9 rounded-full px-3 text-[11px] gap-1">
+                                {activeModel?.name || "Sprouts Research"}
+                                <ChevronDown className="h-3 w-3 opacity-60" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[240px]">
+                              {MODELS.map((model) => {
+                                const Icon = model.icon;
+                                return (
+                                  <DropdownMenuItem
+                                    key={model.id}
+                                    onClick={() => {
+                                      setSelectedModel(model.id);
+                                      if (model.id === "sprouts-research") {
+                                        setWebSearchEnabled(true);
+                                      }
+                                    }}
+                                    className="flex items-center justify-between"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Icon className="h-3 w-3 text-primary" />
+                                      <span>{model.name}</span>
+                                    </div>
+                                    <Badge variant="secondary" className="ml-2 text-xs">
+                                      {model.credits} credits
+                                    </Badge>
+                                  </DropdownMenuItem>
+                                );
+                              })}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full hover:bg-secondary">
+                            <Mic className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-
-                      {/* Model Selector */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Model:</span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2 h-9 min-w-[160px] justify-between font-normal">
-                              <div className="flex items-center gap-2">
-                                <Sparkles className="h-3 w-3 text-primary" />
-                                <span className="text-xs">{MODELS.find(m => m.id === selectedModel)?.name || "Sprouts Research"}</span>
-                              </div>
-                              <ChevronDown className="h-3 w-3 opacity-50" />
+                      <div className="relative">
+                        <textarea
+                          ref={textareaRef}
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                          onKeyDown={handlePromptKeyDown}
+                          placeholder=""
+                          aria-label="Prompt"
+                          className="w-full min-h-[160px] bg-transparent resize-none text-sm placeholder:text-muted-foreground leading-relaxed focus:outline-none relative z-10"
+                        />
+                        {!prompt.trim() && (
+                          <div className="pointer-events-none absolute left-0 top-0 text-sm text-muted-foreground/70 leading-relaxed">
+                            {typewriterText}
+                            <span className="inline-block w-2 animate-pulse">▍</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute bottom-3 right-3">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              onClick={handleEnhancePrompt}
+                              disabled={!prompt.trim()}
+                              className="h-8 w-8 rounded-full bg-gradient-to-br from-primary/20 via-background to-secondary shadow-sm ring-1 ring-primary/20 hover:shadow-md"
+                            >
+                              <Sparkles className="h-4 w-4" />
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[240px]">
-                            {/* Show first 2 models */}
-                            {MODELS.slice(0, 2).map((model) => {
-                              const Icon = model.icon;
-                              return (
-                                <DropdownMenuItem key={model.id} onClick={() => setSelectedModel(model.id)} className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Icon className="h-3 w-3 text-primary" />
-                                    <span>{model.name}</span>
-                                  </div>
-                                  <Badge variant="secondary" className="ml-2 text-xs">
-                                    {model.credits} credits
-                                  </Badge>
-                                </DropdownMenuItem>
-                              );
-                            })}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-primary font-medium">
-                              See all models
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">Enhance prompt</TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="text-xs text-muted-foreground">
-                  Use / to add data columns from Accounts and Contacts page
-                </div>
+                    {(() => {
+                      const chips = [
+                        geolocation && {
+                          id: "geolocation",
+                          label: geolocation.replace(/_/g, " "),
+                          icon: <MapPin className="h-3.5 w-3.5" />,
+                          onRemove: () => setGeolocation("")
+                        },
+                        dateRange && {
+                          id: "dateRange",
+                          label: dateRange.replace(/_/g, " "),
+                          icon: <Clock className="h-3.5 w-3.5" />,
+                          onRemove: () => setDateRange("")
+                        },
+                        outputFormat && {
+                          id: "outputFormat",
+                          label: outputFormat.replace(/_/g, " "),
+                          icon: <FileText className="h-3.5 w-3.5" />,
+                          onRemove: () => setOutputFormat("")
+                        },
+                        selectedModel === "sprouts-research" && {
+                          id: "webSearch",
+                          label: "Web Search",
+                          icon: <Globe className="h-3.5 w-3.5" />
+                        },
+                        selectedModel !== "sprouts-research" && webSearchEnabled && {
+                          id: "webSearch",
+                          label: "Web Search",
+                          icon: <Globe className="h-3.5 w-3.5" />,
+                          onRemove: () => setWebSearchEnabled(false)
+                        }
+                      ].filter(Boolean);
 
-                <Separator className="my-4" />
+                      if (chips.length === 0) return null;
 
-                {/* Recommended Prompts */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-foreground">Recommended:</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { icon: <FileText className="h-4 w-4" />, text: "Check if a company is SaaS or Non-Saas" },
-                      { icon: <MapPin className="h-4 w-4" />, text: "Find the location of the contact" },
-                      { icon: <FileText className="h-4 w-4" />, text: "Find the Linkedin of the contact" }
-                    ].map((item, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setPrompt(item.text)}
-                        className="flex flex-col items-start gap-3 p-4 rounded-xl border border-border hover:border-primary/50 hover:shadow-sm bg-card transition-all text-left h-full group"
-                      >
-                        <div className="p-2 bg-secondary rounded-lg text-muted-foreground group-hover:text-foreground group-hover:bg-primary/10 transition-colors">
-                          {item.icon}
+                      return (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {chips.map((chip) => (
+                            <button
+                              key={chip.id}
+                              onClick={chip.onRemove}
+                              className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs text-foreground transition-all hover:border-primary/50"
+                            >
+                              {chip.icon}
+                              <span className="capitalize">{chip.label}</span>
+                              {chip.onRemove && <X className="h-3 w-3 text-muted-foreground" />}
+                            </button>
+                          ))}
                         </div>
-                        <div className="flex items-start justify-between w-full">
-                          <span className="text-xs font-medium text-muted-foreground leading-snug group-hover:text-foreground">
+                      );
+                    })()}
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {visibleRecommendedSignals.map((item, i) => (
+                          <button
+                            key={`${item.text}-${i}`}
+                            onClick={() => setPrompt(item.text)}
+                            className="max-w-[200px] truncate rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-all hover:border-primary/50 hover:text-foreground"
+                            title={item.text}
+                          >
                             {item.text}
-                          </span>
-                          <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground -mr-1 -mt-1 transition-colors" />
-                        </div>
-                      </button>
-                    ))}
+                          </button>
+                        ))}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setRecommendedSeed((seed) => seed + 1)}
+                        className="h-8 w-8 rounded-full hover:bg-secondary flex-shrink-0"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Use / to add data columns from Accounts and Contacts</span>
+                      <span>Esc to close column suggestions</span>
+                    </div>
                   </div>
                 </div>
 
@@ -996,6 +982,14 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
 
       {/* Info Modal */}
       <InfoModal open={showInfoModal} onClose={() => setShowInfoModal(false)} />
+      <SignalLibraryModal
+        open={showSignalLibrary}
+        onClose={() => setShowSignalLibrary(false)}
+        onSelect={(signal) => {
+          handleSignalSelect(signal);
+          setShowSignalLibrary(false);
+        }}
+      />
     </>
   );
 };
