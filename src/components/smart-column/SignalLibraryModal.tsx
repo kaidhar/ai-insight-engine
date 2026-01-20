@@ -25,7 +25,7 @@ const SIGNAL_LIBRARY: SignalLibraryItem[] = [
     name: "Recent Funding Event",
     category: "Funding",
     description: "Detect if the company raised funding in the last 12 months.",
-    template: "Signal: Recent Funding Event — has the company raised funding in the last 12 months?"
+    template: "Research: Recent Funding Event — has the company raised funding in the last 12 months?"
   },
   {
     id: "tech-stack",
@@ -85,8 +85,8 @@ const SignalLibraryModal = ({ open, onClose, onSelect }: SignalLibraryModalProps
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Signal Library</h2>
-                <p className="text-sm text-muted-foreground">5,500+ enrichment signals</p>
+                <h2 className="text-lg font-semibold text-foreground">Research Templates</h2>
+                <p className="text-sm text-muted-foreground">5,500+ research templates</p>
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-secondary">
@@ -100,7 +100,7 @@ const SignalLibraryModal = ({ open, onClose, onSelect }: SignalLibraryModalProps
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search signals by name, category, or intent..."
+                placeholder="Search templates by name, category, or intent..."
                 className="pl-9"
               />
             </div>
@@ -124,16 +124,16 @@ const SignalLibraryModal = ({ open, onClose, onSelect }: SignalLibraryModalProps
 
               {filteredSignals.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground md:col-span-2">
-                  No signals match that search yet.
+                  No templates match that search yet.
                 </div>
               )}
             </div>
           </ScrollArea>
 
           <div className="px-6 py-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-            <span>Tip: choose a signal to insert it directly into your prompt.</span>
+            <span>Tip: choose a template to insert it directly into your prompt.</span>
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-              View all signals
+              View all templates
             </Button>
           </div>
         </div>

@@ -50,40 +50,40 @@ const AccountsTable = ({ onAskAIClick }: AccountsTableProps) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[280px] bg-popover border-2 border-border">
-              <DropdownMenuItem className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3">
-                <div className="flex items-center gap-2 w-full">
-                  <span className="text-lg">🎯</span>
-                  <span className="font-medium">AI Signals</span>
-                </div>
-                <span className="text-xs text-muted-foreground ml-6">Discover buying signals</span>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3">
-                <div className="flex items-center gap-2 w-full">
-                  <span className="text-lg">🔧</span>
-                  <span className="font-medium">Techstack Signals</span>
-                </div>
-                <span className="text-xs text-muted-foreground ml-6">Analyze technology stack</span>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3">
-                <div className="flex items-center gap-2 w-full">
-                  <span className="text-lg">⚡</span>
-                  <span className="font-medium">Smart Columns</span>
-                </div>
-                <span className="text-xs text-muted-foreground ml-6">Pre-built enrichment columns</span>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={onAskAIClick}
                 className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3 bg-primary/5"
               >
                 <div className="flex items-center gap-2 w-full">
                   <Sparkles className="w-4 h-4 text-primary" />
-                  <span className="font-medium">Ask AI</span>
+                  <span className="font-medium">AI Researcher</span>
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-auto">NEW</Badge>
                 </div>
-                <span className="text-xs text-muted-foreground ml-6">Create custom AI enrichments</span>
+                <span className="text-xs text-muted-foreground ml-6">Research and analyze with AI</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3">
+                <div className="flex items-center gap-2 w-full">
+                  <span className="text-lg">🎯</span>
+                  <span className="font-medium">Buying Intent</span>
+                </div>
+                <span className="text-xs text-muted-foreground ml-6">Discover buying signals</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3">
+                <div className="flex items-center gap-2 w-full">
+                  <span className="text-lg">🔧</span>
+                  <span className="font-medium">Technology Stack</span>
+                </div>
+                <span className="text-xs text-muted-foreground ml-6">Analyze technology stack</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3">
+                <div className="flex items-center gap-2 w-full">
+                  <span className="text-lg">⚡</span>
+                  <span className="font-medium">Smart Columns</span>
+                </div>
+                <span className="text-xs text-muted-foreground ml-6">Pre-built research columns</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

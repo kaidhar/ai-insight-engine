@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Sparkles, X, ChevronLeft, ChevronRight, PlayCircle, Zap, Crown, Info, Plus, ChevronDown, Globe, MapPin, Clock, FileText, Mic, RefreshCw } from "lucide-react";
+import { Sparkles, X, ChevronLeft, ChevronRight, PlayCircle, Zap, Crown, Plus, ChevronDown, Globe, MapPin, Clock, FileText, Mic, RefreshCw, Check, Settings2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import PromptBuilder from "./smart-column/PromptBuilder";
 import PreviewSystem from "./smart-column/PreviewSystem";
 import ExecutionMonitor from "./smart-column/ExecutionMonitor";
@@ -45,7 +46,7 @@ const MODELS = [
     name: "Sprouts Research",
     credits: 5,
     icon: Sparkles,
-    description: "AI Signals powered research"
+    description: "AI Researcher powered analysis"
   },
   {
     id: "gpt-4o",
@@ -74,8 +75,6 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
   const [currentStep, setCurrentStep] = useState<Step>("configure");
   const [prompt, setPrompt] = useState("");
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
-  const [enrichmentScope, setEnrichmentScope] = useState("all");
-  const [customCount, setCustomCount] = useState("100");
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
   const [showSignalLibrary, setShowSignalLibrary] = useState(false);
   const [recommendedSeed, setRecommendedSeed] = useState(0);
@@ -93,6 +92,34 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
   const [dateRange, setDateRange] = useState("");
   const [geolocation, setGeolocation] = useState("");
   const [outputFormat, setOutputFormat] = useState("");
+
+  // Enrichment settings
+  const [enrichmentScope, setEnrichmentScope] = useState<"all" | "first" | "selected">("all");
+  const [customRowCount, setCustomRowCount] = useState("100");
+  const [futureEnrichment, setFutureEnrichment] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [generatedColumnName, setGeneratedColumnName] = useState("");
+  const totalRows = 1250;
+  const selectedRows = 45;
+  const creditsPerRow = 12.5;
+
+  // Generate column name from prompt
+  const generateColumnName = (text: string): string => {
+    if (!text.trim()) return "";
+    // Simple AI-like column name generation based on prompt keywords
+    const words = text.toLowerCase().split(/\s+/);
+    const keyWords = words.filter(w =>
+      !['the', 'a', 'an', 'is', 'are', 'has', 'have', 'does', 'do', 'what', 'which', 'how', 'find', 'get', 'show', 'tell', 'me', 'for', 'of', 'to', 'in', 'on', 'at', 'by', 'with'].includes(w)
+    ).slice(0, 3);
+    if (keyWords.length === 0) return "AI Research";
+    return keyWords.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  };
+
+  // Update column name when prompt changes
+  useEffect(() => {
+    const name = generateColumnName(prompt);
+    setGeneratedColumnName(name || "AI Research");
+  }, [prompt]);
 
   // Preview state
   const [showPreviewSidebar, setShowPreviewSidebar] = useState(false);
@@ -143,9 +170,9 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
     }
 
     const messages = [
-      "Type / to insert fields, then ask for a signal",
-      "Try: Identify recent funding announcements",
-      "Try: Find the tech stack for this company"
+      "Type / to insert fields, then describe your research",
+      "Try: Research recent funding announcements",
+      "Try: Analyze the tech stack for this company"
     ];
     const currentMessage = messages[typewriterIndex % messages.length];
     let timeoutId: ReturnType<typeof setTimeout>;
@@ -369,28 +396,24 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
   };
 
   const stepTitles = {
-    configure: "Configure Your AI Enrichment",
-    confirm: "Confirm Enrichment Run",
-    execute: "Enrichment in Progress",
+    configure: "Configure AI Researcher",
+    confirm: "Review & Confirm",
+    execute: "Research in Progress",
   };
 
   const stepSubtitles = {
-    configure: "Write a prompt, preview results, and configure output display",
-    confirm: "Select enrichment scope and review settings",
-    execute: "Processing your accounts",
+    configure: "Describe your research and configure settings",
+    confirm: "Review the summary and confirm to run",
+    execute: "Processing your rows",
   };
-
-  const totalAccounts = 1250;
-  const selectedAccounts = 45;
-  const costPerAccount = 12.5;
 
   const getAccountCount = () => {
-    if (enrichmentScope === "all") return totalAccounts;
-    if (enrichmentScope === "first") return parseInt(customCount) || 100;
-    return selectedAccounts;
+    if (enrichmentScope === "all") return totalRows;
+    if (enrichmentScope === "first") return parseInt(customRowCount) || 100;
+    return selectedRows;
   };
 
-  const totalCost = currentStep === "confirm" ? getAccountCount() * costPerAccount : 0;
+  const totalCost = currentStep === "confirm" ? getAccountCount() * creditsPerRow : 0;
 
   return (
     <>
@@ -410,18 +433,9 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-foreground">AI Enrichment</h2>
-                  <p className="text-xs text-muted-foreground">Smart Search with intelligent cost optimization</p>
+                  <h2 className="text-xl font-semibold text-foreground">AI Researcher</h2>
+                  <p className="text-xs text-muted-foreground">Intelligent research with cost optimization</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowInfoModal(true)}
-                  className="gap-1.5 text-primary hover:text-primary"
-                >
-                  <Info className="w-4 h-4" />
-                  How it works
-                </Button>
               </div>
               <Button
                 variant="ghost"
@@ -472,16 +486,33 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
             {currentStep === "configure" && (
               <div className="p-6 relative bg-gradient-to-br from-background via-secondary/20 to-purple-200/30">
                 <div className="relative mx-auto flex min-h-[560px] max-w-[880px] flex-col justify-between rounded-3xl border-2 border-border bg-background shadow-2xl ring-1 ring-primary/10 overflow-hidden before:absolute before:inset-0 before:pointer-events-none before:bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.2),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(168,85,247,0.08),transparent_55%)]">
-                  <div className="px-8 py-8 space-y-4 bg-background">
+                  <div className="px-8 py-4 space-y-2 bg-background">
                     <h2 className="text-3xl font-semibold text-foreground">Where should we start?</h2>
                     <p className="text-sm text-muted-foreground">
-                      Describe the enrichment you want. I can summarize, classify, or find signal-based insights.
+                      Describe what you want to research. I can analyze, summarize, and find insights.
                     </p>
                   </div>
 
                   <div className="px-6 pb-6">
                     <div className="relative rounded-[28px] border-2 border-border bg-background px-4 py-4 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all shadow-sm">
-                      <div className="flex items-center justify-between gap-3 pb-3">
+                      <div className="relative">
+                        <textarea
+                          ref={textareaRef}
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                          onKeyDown={handlePromptKeyDown}
+                          placeholder=""
+                          aria-label="Prompt"
+                          className="w-full min-h-[160px] bg-transparent resize-none text-sm placeholder:text-muted-foreground leading-relaxed focus:outline-none relative z-10"
+                        />
+                        {!prompt.trim() && (
+                          <div className="pointer-events-none absolute left-0 top-0 text-sm text-muted-foreground/70 leading-relaxed">
+                            {typewriterText}
+                            <span className="inline-block w-2 animate-pulse">▍</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-3 pt-3">
                         <div className="flex items-center gap-2">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -498,7 +529,7 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                                 onSelect={() => setShowSignalLibrary(true)}
                               >
                                 <Sparkles className="h-4 w-4 text-primary" />
-                                <span className="text-sm">Signal Library</span>
+                                <span className="text-sm">Research Templates</span>
                                 <Badge variant="secondary" className="ml-auto text-[10px]">5,500+</Badge>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
@@ -518,17 +549,21 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                                         onClick={(e) => e.stopPropagation()}
                                       />
                                     </div>
-                                    <DropdownMenuItem onSelect={() => setGeolocation("united_states")}>
+                                    <DropdownMenuItem onSelect={() => setGeolocation("united_states")} className="flex items-center justify-between">
                                       United States
+                                      {geolocation === "united_states" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setGeolocation("global")}>
+                                    <DropdownMenuItem onSelect={() => setGeolocation("global")} className="flex items-center justify-between">
                                       Global
+                                      {geolocation === "global" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setGeolocation("europe")}>
+                                    <DropdownMenuItem onSelect={() => setGeolocation("europe")} className="flex items-center justify-between">
                                       Europe
+                                      {geolocation === "europe" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setGeolocation("asia")}>
+                                    <DropdownMenuItem onSelect={() => setGeolocation("asia")} className="flex items-center justify-between">
                                       Asia
+                                      {geolocation === "asia" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
                                   </DropdownMenuSubContent>
                                 </DropdownMenuSub>
@@ -539,17 +574,21 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                                     <span className="text-sm">Time Range</span>
                                   </DropdownMenuSubTrigger>
                                   <DropdownMenuSubContent className="w-48">
-                                    <DropdownMenuItem onSelect={() => setDateRange("past_6_months")}>
+                                    <DropdownMenuItem onSelect={() => setDateRange("past_6_months")} className="flex items-center justify-between">
                                       Past 6 Months
+                                      {dateRange === "past_6_months" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setDateRange("past_year")}>
+                                    <DropdownMenuItem onSelect={() => setDateRange("past_year")} className="flex items-center justify-between">
                                       Past Year
+                                      {dateRange === "past_year" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setDateRange("past_2_years")}>
+                                    <DropdownMenuItem onSelect={() => setDateRange("past_2_years")} className="flex items-center justify-between">
                                       Past 2 Years
+                                      {dateRange === "past_2_years" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setDateRange("all_time")}>
+                                    <DropdownMenuItem onSelect={() => setDateRange("all_time")} className="flex items-center justify-between">
                                       All Time
+                                      {dateRange === "all_time" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
                                   </DropdownMenuSubContent>
                                 </DropdownMenuSub>
@@ -560,28 +599,48 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                                     <span className="text-sm">Response Format</span>
                                   </DropdownMenuSubTrigger>
                                   <DropdownMenuSubContent className="w-40">
-                                    <DropdownMenuItem onSelect={() => setOutputFormat("yes_no")}>
+                                    <DropdownMenuItem onSelect={() => setOutputFormat("yes_no")} className="flex items-center justify-between">
                                       Yes/No
+                                      {outputFormat === "yes_no" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setOutputFormat("detailed")}>
+                                    <DropdownMenuItem onSelect={() => setOutputFormat("detailed")} className="flex items-center justify-between">
                                       Detailed
+                                      {outputFormat === "detailed" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setOutputFormat("structured")}>
+                                    <DropdownMenuItem onSelect={() => setOutputFormat("structured")} className="flex items-center justify-between">
                                       Structured
+                                      {outputFormat === "structured" && <Check className="h-4 w-4 text-primary" />}
                                     </DropdownMenuItem>
                                   </DropdownMenuSubContent>
                                 </DropdownMenuSub>
                               </>
 
                               <DropdownMenuItem
-                                className="gap-2 cursor-pointer"
+                                className="gap-2 cursor-pointer flex items-center justify-between"
                                 onSelect={() => setWebSearchEnabled(!webSearchEnabled)}
                               >
-                                <Globe className={`h-4 w-4 ${webSearchEnabled ? 'text-blue-500' : 'text-muted-foreground'}`} />
-                                <span className="text-sm">Web Search</span>
+                                <div className="flex items-center gap-2">
+                                  <Globe className={`h-4 w-4 ${webSearchEnabled ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                                  <span className="text-sm">Web Search</span>
+                                </div>
+                                {webSearchEnabled && <Check className="h-4 w-4 text-primary" />}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={handleEnhancePrompt}
+                                disabled={!prompt.trim()}
+                                className="h-9 w-9 rounded-full hover:bg-secondary"
+                              >
+                                <Sparkles className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">Enhance prompt</TooltipContent>
+                          </Tooltip>
                         </div>
                         <div className="flex items-center gap-2">
                           <DropdownMenu>
@@ -622,92 +681,213 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                           </Button>
                         </div>
                       </div>
-                      <div className="relative">
-                        <textarea
-                          ref={textareaRef}
-                          value={prompt}
-                          onChange={(e) => setPrompt(e.target.value)}
-                          onKeyDown={handlePromptKeyDown}
-                          placeholder=""
-                          aria-label="Prompt"
-                          className="w-full min-h-[160px] bg-transparent resize-none text-sm placeholder:text-muted-foreground leading-relaxed focus:outline-none relative z-10"
-                        />
-                        {!prompt.trim() && (
-                          <div className="pointer-events-none absolute left-0 top-0 text-sm text-muted-foreground/70 leading-relaxed">
-                            {typewriterText}
-                            <span className="inline-block w-2 animate-pulse">▍</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="absolute bottom-3 right-3">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="secondary"
-                              onClick={handleEnhancePrompt}
-                              disabled={!prompt.trim()}
-                              className="h-8 w-8 rounded-full bg-gradient-to-br from-primary/20 via-background to-secondary shadow-sm ring-1 ring-primary/20 hover:shadow-md"
-                            >
-                              <Sparkles className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">Enhance prompt</TooltipContent>
-                        </Tooltip>
-                      </div>
                     </div>
 
-                    {(() => {
-                      const chips = [
-                        geolocation && {
-                          id: "geolocation",
-                          label: geolocation.replace(/_/g, " "),
-                          icon: <MapPin className="h-3.5 w-3.5" />,
-                          onRemove: () => setGeolocation("")
-                        },
-                        dateRange && {
-                          id: "dateRange",
-                          label: dateRange.replace(/_/g, " "),
-                          icon: <Clock className="h-3.5 w-3.5" />,
-                          onRemove: () => setDateRange("")
-                        },
-                        outputFormat && {
-                          id: "outputFormat",
-                          label: outputFormat.replace(/_/g, " "),
-                          icon: <FileText className="h-3.5 w-3.5" />,
-                          onRemove: () => setOutputFormat("")
-                        },
-                        selectedModel === "sprouts-research" && {
-                          id: "webSearch",
-                          label: "Web Search",
-                          icon: <Globe className="h-3.5 w-3.5" />
-                        },
-                        selectedModel !== "sprouts-research" && webSearchEnabled && {
-                          id: "webSearch",
-                          label: "Web Search",
-                          icon: <Globe className="h-3.5 w-3.5" />,
-                          onRemove: () => setWebSearchEnabled(false)
-                        }
-                      ].filter(Boolean);
+                    {(geolocation || dateRange || outputFormat || webSearchEnabled) && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {geolocation && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs text-foreground transition-all hover:border-primary/50">
+                                <MapPin className="h-3.5 w-3.5 text-orange-500" />
+                                <span className="capitalize">{geolocation.replace(/_/g, " ")}</span>
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                              <DropdownMenuItem onSelect={() => setGeolocation("united_states")} className="flex items-center justify-between">
+                                United States
+                                {geolocation === "united_states" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setGeolocation("global")} className="flex items-center justify-between">
+                                Global
+                                {geolocation === "global" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setGeolocation("europe")} className="flex items-center justify-between">
+                                Europe
+                                {geolocation === "europe" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setGeolocation("asia")} className="flex items-center justify-between">
+                                Asia
+                                {geolocation === "asia" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onSelect={() => setGeolocation("")} className="text-destructive">
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                        {dateRange && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs text-foreground transition-all hover:border-primary/50">
+                                <Clock className="h-3.5 w-3.5 text-purple-500" />
+                                <span className="capitalize">{dateRange.replace(/_/g, " ")}</span>
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                              <DropdownMenuItem onSelect={() => setDateRange("past_6_months")} className="flex items-center justify-between">
+                                Past 6 Months
+                                {dateRange === "past_6_months" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setDateRange("past_year")} className="flex items-center justify-between">
+                                Past Year
+                                {dateRange === "past_year" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setDateRange("past_2_years")} className="flex items-center justify-between">
+                                Past 2 Years
+                                {dateRange === "past_2_years" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setDateRange("all_time")} className="flex items-center justify-between">
+                                All Time
+                                {dateRange === "all_time" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onSelect={() => setDateRange("")} className="text-destructive">
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                        {outputFormat && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs text-foreground transition-all hover:border-primary/50">
+                                <FileText className="h-3.5 w-3.5 text-green-500" />
+                                <span className="capitalize">{outputFormat.replace(/_/g, " ")}</span>
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-40">
+                              <DropdownMenuItem onSelect={() => setOutputFormat("yes_no")} className="flex items-center justify-between">
+                                Yes/No
+                                {outputFormat === "yes_no" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setOutputFormat("detailed")} className="flex items-center justify-between">
+                                Detailed
+                                {outputFormat === "detailed" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setOutputFormat("structured")} className="flex items-center justify-between">
+                                Structured
+                                {outputFormat === "structured" && <Check className="h-4 w-4 text-primary" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onSelect={() => setOutputFormat("")} className="text-destructive">
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                        {(selectedModel === "sprouts-research" || webSearchEnabled) && (
+                          <button
+                            onClick={() => selectedModel !== "sprouts-research" && setWebSearchEnabled(false)}
+                            className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs text-foreground transition-all hover:border-primary/50"
+                          >
+                            <Globe className="h-3.5 w-3.5 text-blue-500" />
+                            <span>Web Search</span>
+                            {selectedModel !== "sprouts-research" && <X className="h-3 w-3 text-muted-foreground" />}
+                          </button>
+                        )}
+                      </div>
+                    )}
 
-                      if (chips.length === 0) return null;
+                    {/* Run Settings */}
+                    {prompt.trim() && (
+                      <div className="mt-4 p-4 rounded-xl border border-border bg-secondary/20">
+                        <div className="space-y-4">
+                          {/* Scope Selection */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Run on:</span>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => setEnrichmentScope("all")}
+                                className={`px-3 py-1 text-xs rounded-full border transition-all ${
+                                  enrichmentScope === "all"
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                All {totalRows.toLocaleString()} rows
+                              </button>
+                              <button
+                                onClick={() => setEnrichmentScope("first")}
+                                className={`px-3 py-1 text-xs rounded-full border transition-all flex items-center gap-1 ${
+                                  enrichmentScope === "first"
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                First
+                                <Input
+                                  type="number"
+                                  value={customRowCount}
+                                  onChange={(e) => setCustomRowCount(e.target.value)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEnrichmentScope("first");
+                                  }}
+                                  className="w-14 h-5 text-xs px-1 bg-background text-foreground"
+                                  min="1"
+                                  max={totalRows}
+                                />
+                              </button>
+                              <button
+                                onClick={() => setEnrichmentScope("selected")}
+                                className={`px-3 py-1 text-xs rounded-full border transition-all ${
+                                  enrichmentScope === "selected"
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "border-border hover:border-primary/50"
+                                }`}
+                              >
+                                Selected ({selectedRows})
+                              </button>
+                            </div>
+                          </div>
 
-                      return (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {chips.map((chip) => (
-                            <button
-                              key={chip.id}
-                              onClick={chip.onRemove}
-                              className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs text-foreground transition-all hover:border-primary/50"
-                            >
-                              {chip.icon}
-                              <span className="capitalize">{chip.label}</span>
-                              {chip.onRemove && <X className="h-3 w-3 text-muted-foreground" />}
-                            </button>
-                          ))}
+                          {/* Credits & Toggles Row */}
+                          <div className="flex items-center justify-between pt-3 border-t border-border">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id="future-enrichment"
+                                  checked={futureEnrichment}
+                                  onCheckedChange={setFutureEnrichment}
+                                  className="scale-75"
+                                />
+                                <Label htmlFor="future-enrichment" className="text-xs text-muted-foreground cursor-pointer">
+                                  Future rows
+                                </Label>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id="auto-refresh"
+                                  checked={autoRefresh}
+                                  onCheckedChange={setAutoRefresh}
+                                  className="scale-75"
+                                />
+                                <Label htmlFor="auto-refresh" className="text-xs text-muted-foreground cursor-pointer">
+                                  Auto refresh
+                                </Label>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-lg font-bold text-primary">
+                                {(() => {
+                                  const count = enrichmentScope === "all" ? totalRows
+                                    : enrichmentScope === "first" ? (parseInt(customRowCount) || 100)
+                                    : selectedRows;
+                                  return (count * creditsPerRow).toLocaleString();
+                                })()}
+                              </span>
+                              <span className="text-xs text-muted-foreground ml-1">credits</span>
+                            </div>
+                          </div>
                         </div>
-                      );
-                    })()}
+                      </div>
+                    )}
+
                     <div className="mt-3 flex items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         {visibleRecommendedSignals.map((item, i) => (
@@ -754,101 +934,125 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
 
             {currentStep === "confirm" && (
               <div className="p-6 space-y-6">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Configuration Summary</h3>
-                  <div className="p-4 rounded-lg bg-secondary/30 border border-border space-y-3 text-sm">
-                    <p><span className="text-muted-foreground">Model:</span> <span className="font-medium">{MODELS.find(m => m.id === selectedModel)?.name || "GPT-4o"}</span></p>
-                    <p><span className="text-muted-foreground">Web Search:</span> <span className="font-medium">{webSearchEnabled ? 'Enabled' : 'Disabled'}</span></p>
-                    {webSearchEnabled && (
-                      <>
-                        <p><span className="text-muted-foreground">Date Range:</span> <span className="font-medium capitalize">{dateRange.replace(/_/g, ' ')}</span></p>
-                        <p><span className="text-muted-foreground">Geolocation:</span> <span className="font-medium capitalize">{geolocation.replace(/_/g, ' ')}</span></p>
-                      </>
-                    )}
-                    <p><span className="text-muted-foreground">Output Format:</span> <span className="font-medium capitalize">{outputFormat.replace(/_/g, ' ')}</span></p>
+                {/* AI Generated Column Header */}
+                <div className="p-5 rounded-xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-secondary/10">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">Research Summary</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Column Name */}
                     <div>
-                      <p className="text-muted-foreground mb-2">Output Fields:</p>
-                      <div className="flex flex-wrap gap-2 ml-0">
-                        {detectedFields.map((field) => (
-                          <div
-                            key={field.name}
-                            className="px-2.5 py-1 rounded-md bg-background border border-border text-xs"
-                          >
-                            <span className="font-medium text-foreground">{field.name}</span>
-                            <span className="text-muted-foreground ml-1.5">({field.type})</span>
-                          </div>
-                        ))}
+                      <label className="text-xs text-muted-foreground mb-1 block">Column Header</label>
+                      <Input
+                        value={generatedColumnName}
+                        onChange={(e) => setGeneratedColumnName(e.target.value)}
+                        className="text-lg font-semibold h-12 bg-background"
+                        placeholder="Column name..."
+                      />
+                    </div>
+
+                    {/* Research Query */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Research Query</label>
+                      <div className="p-3 rounded-lg bg-background border border-border text-sm text-foreground">
+                        {prompt}
                       </div>
+                    </div>
+
+                    {/* Configuration Tags */}
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-2.5 py-1 rounded-full bg-background border border-border text-xs">
+                        <span className="text-muted-foreground">Model:</span> <span className="font-medium">{MODELS.find(m => m.id === selectedModel)?.name || "GPT-4o"}</span>
+                      </span>
+                      {webSearchEnabled && (
+                        <span className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-xs text-blue-600">
+                          Web Search
+                        </span>
+                      )}
+                      {geolocation && (
+                        <span className="px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-xs text-orange-600 capitalize">
+                          {geolocation.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                      {dateRange && (
+                        <span className="px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-xs text-purple-600 capitalize">
+                          {dateRange.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                      {outputFormat && (
+                        <span className="px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/30 text-xs text-green-600 capitalize">
+                          {outputFormat.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                      {futureEnrichment && (
+                        <span className="px-2.5 py-1 rounded-full bg-background border border-border text-xs">
+                          Future rows
+                        </span>
+                      )}
+                      {autoRefresh && (
+                        <span className="px-2.5 py-1 rounded-full bg-background border border-border text-xs">
+                          Auto refresh
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Cost Breakdown based on preview results */}
-                {previewResults.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground mb-3">Preview Cost Analysis</h3>
-                    <CostBreakdown
-                      tier1Count={previewResults.filter(r => r.tierUsed === 'tier1_fast').length}
-                      tier2Count={previewResults.filter(r => r.tierUsed === 'tier2_deep').length}
-                      totalAccounts={5}
-                      showDetails={true}
-                    />
-                  </div>
-                )}
-
+                {/* Run Scope */}
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Select Enrichment Scope</h3>
-                  <RadioGroup value={enrichmentScope} onValueChange={setEnrichmentScope} className="space-y-3">
-                    <div className="flex items-start space-x-3 p-4 rounded-lg border-2 border-border hover:border-primary/50 transition-colors cursor-pointer">
-                      <RadioGroupItem value="all" id="all" className="mt-1" />
-                      <Label htmlFor="all" className="flex-1 cursor-pointer">
-                        <div className="font-medium text-foreground">Enrich all {totalAccounts.toLocaleString()} accounts in this table</div>
-                        <div className="text-sm text-muted-foreground mt-1">Total cost: {(totalAccounts * costPerAccount).toLocaleString()} credits</div>
+                  <h3 className="text-sm font-semibold text-foreground mb-3">Run Scope</h3>
+                  <RadioGroup value={enrichmentScope} onValueChange={(v) => setEnrichmentScope(v as "all" | "first" | "selected")} className="space-y-2">
+                    <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:border-primary/50 transition-colors cursor-pointer">
+                      <RadioGroupItem value="all" id="confirm-all" />
+                      <Label htmlFor="confirm-all" className="flex-1 cursor-pointer flex items-center justify-between">
+                        <span className="font-medium text-foreground">All {totalRows.toLocaleString()} rows</span>
+                        <span className="text-sm text-muted-foreground">{(totalRows * creditsPerRow).toLocaleString()} credits</span>
                       </Label>
                     </div>
 
-                    <div className="flex items-start space-x-3 p-4 rounded-lg border-2 border-border hover:border-primary/50 transition-colors cursor-pointer">
-                      <RadioGroupItem value="first" id="first" className="mt-1" />
-                      <Label htmlFor="first" className="flex-1 cursor-pointer">
-                        <div className="font-medium text-foreground flex items-center gap-2">
-                          Enrich first 
+                    <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:border-primary/50 transition-colors cursor-pointer">
+                      <RadioGroupItem value="first" id="confirm-first" />
+                      <Label htmlFor="confirm-first" className="flex-1 cursor-pointer flex items-center justify-between">
+                        <span className="font-medium text-foreground flex items-center gap-2">
+                          First
                           <Input
                             type="number"
-                            value={customCount}
-                            onChange={(e) => setCustomCount(e.target.value)}
-                            className="w-24 h-8"
+                            value={customRowCount}
+                            onChange={(e) => setCustomRowCount(e.target.value)}
+                            className="w-20 h-7 text-sm"
                             min="1"
-                            max={totalAccounts}
+                            max={totalRows}
                             onClick={(e) => e.stopPropagation()}
                           />
-                          accounts
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          Total cost: {((parseInt(customCount) || 100) * costPerAccount).toLocaleString()} credits
-                        </div>
+                          rows
+                        </span>
+                        <span className="text-sm text-muted-foreground">{((parseInt(customRowCount) || 100) * creditsPerRow).toLocaleString()} credits</span>
                       </Label>
                     </div>
 
-                    <div className="flex items-start space-x-3 p-4 rounded-lg border-2 border-border hover:border-primary/50 transition-colors cursor-pointer">
-                      <RadioGroupItem value="selected" id="selected" className="mt-1" />
-                      <Label htmlFor="selected" className="flex-1 cursor-pointer">
-                        <div className="font-medium text-foreground">Enrich selected {selectedAccounts} accounts</div>
-                        <div className="text-sm text-muted-foreground mt-1">Total cost: {(selectedAccounts * costPerAccount).toLocaleString()} credits</div>
+                    <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:border-primary/50 transition-colors cursor-pointer">
+                      <RadioGroupItem value="selected" id="confirm-selected" />
+                      <Label htmlFor="confirm-selected" className="flex-1 cursor-pointer flex items-center justify-between">
+                        <span className="font-medium text-foreground">Selected ({selectedRows} rows)</span>
+                        <span className="text-sm text-muted-foreground">{(selectedRows * creditsPerRow).toLocaleString()} credits</span>
                       </Label>
                     </div>
                   </RadioGroup>
                 </div>
 
-                <div className="p-6 rounded-xl bg-gradient-primary/5 border-2 border-primary/20">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">💳 Final Cost Estimate</h3>
-                  <div className="text-center mb-4">
-                    <div className="text-4xl font-bold text-primary">{totalCost.toLocaleString()}</div>
-                    <div className="text-sm text-muted-foreground mt-1">credits</div>
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Accounts: {getAccountCount().toLocaleString()}</span>
-                    <span>Per Account: {costPerAccount} credits</span>
-                    <span>Tokens: ~{(getAccountCount() * 0.1).toFixed(1)}</span>
+                {/* Final Cost */}
+                <div className="p-4 rounded-xl bg-gradient-primary/5 border-2 border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Total Cost</div>
+                      <div className="text-xs text-muted-foreground">{getAccountCount().toLocaleString()} rows × {creditsPerRow} credits</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-3xl font-bold text-primary">{totalCost.toLocaleString()}</div>
+                      <div className="text-sm text-muted-foreground">credits</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -900,7 +1104,7 @@ const SmartColumnModal = ({ open, onOpenChange }: SmartColumnModalProps) => {
                   onClick={handleNext}
                   className="gap-2"
                 >
-                  Run Enrichment →
+                  Run Research →
                 </Button>
               )}
 
