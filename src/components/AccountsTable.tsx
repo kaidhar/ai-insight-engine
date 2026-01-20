@@ -62,29 +62,6 @@ const AccountsTable = ({ onAskAIClick }: AccountsTableProps) => {
                 <span className="text-xs text-muted-foreground ml-6">Research and analyze with AI</span>
               </DropdownMenuItem>
 
-              <DropdownMenuItem className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3">
-                <div className="flex items-center gap-2 w-full">
-                  <span className="text-lg">🎯</span>
-                  <span className="font-medium">Buying Intent</span>
-                </div>
-                <span className="text-xs text-muted-foreground ml-6">Discover buying signals</span>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3">
-                <div className="flex items-center gap-2 w-full">
-                  <span className="text-lg">🔧</span>
-                  <span className="font-medium">Technology Stack</span>
-                </div>
-                <span className="text-xs text-muted-foreground ml-6">Analyze technology stack</span>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem className="flex flex-col items-start gap-1 cursor-pointer hover:bg-secondary/80 p-3">
-                <div className="flex items-center gap-2 w-full">
-                  <span className="text-lg">⚡</span>
-                  <span className="font-medium">Smart Columns</span>
-                </div>
-                <span className="text-xs text-muted-foreground ml-6">Pre-built research columns</span>
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
